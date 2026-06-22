@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [isLocal, setIsLocal] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,7 +37,14 @@ export default function SignupPage() {
         .eq('id', data.user.id)
     }
 
-    router.push('/map')
+    // Si la sesión ya está activa (email confirm desactivado) → ir al mapa
+    // Si no → el usuario debe confirmar su email primero
+    if (data.session) {
+      router.push('/map')
+    } else {
+      setEmailSent(true)
+      setLoading(false)
+    }
   }
 
   const handleGoogle = async () => {
@@ -45,6 +53,22 @@ export default function SignupPage() {
       provider: 'google',
       options: { redirectTo: `${location.origin}/callback` },
     })
+  }
+
+  if (emailSent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 to-white flex items-center justify-center p-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="text-5xl mb-4">📬</div>
+          <h2 className="text-xl font-bold text-zinc-900 mb-2">Revisa tu email</h2>
+          <p className="text-sm text-zinc-500 mb-6">
+            Te enviamos un link de confirmación a <span className="font-medium text-zinc-700">{email}</span>.
+            Ábrelo y luego vuelve a iniciar sesión.
+          </p>
+          <a href="/login" className="text-teal-600 font-medium text-sm hover:underline">Ir al login →</a>
+        </div>
+      </div>
+    )
   }
 
   return (
