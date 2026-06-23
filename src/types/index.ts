@@ -11,12 +11,12 @@ export type PinCategory =
   | 'nuevos_comienzos'
 
 export type PinStatus = 'active' | 'full' | 'expired' | 'cancelled'
-
 export type PinDuration = '1h' | '3h' | 'today'
+export type FriendshipStatus = 'pending' | 'accepted' | 'blocked'
 
 export interface Profile {
   id: string
-  username: string
+  username: string | null
   display_name: string
   avatar_url: string | null
   bio: string | null
@@ -71,6 +71,30 @@ export interface Message {
   sender?: Profile
 }
 
+export interface Friendship {
+  id: string
+  requester_id: string
+  addressee_id: string
+  status: FriendshipStatus
+  created_at: string
+  updated_at: string
+  // Joined
+  requester?: Profile
+  addressee?: Profile
+}
+
+export interface PinInvite {
+  id: string
+  pin_id: string
+  inviter_id: string
+  invitee_id: string
+  status: 'pending' | 'accepted' | 'declined'
+  created_at: string
+  // Joined
+  pin?: Pin
+  inviter?: Profile
+}
+
 export interface Venue {
   id: string
   name: string
@@ -83,28 +107,22 @@ export interface Venue {
   active: boolean
 }
 
-export interface Icebreaker {
-  pin_id: string
-  content: string
-  generated_at: string
-}
-
 // ─── UI helpers ───────────────────────────────────────────────────
 
 export const CATEGORY_META: Record<
   PinCategory,
   { label: string; emoji: string; color: string; bg: string }
 > = {
-  tech:              { label: 'Tech & Networking', emoji: '💻', color: '#1D9E75', bg: '#E1F5EE' },
-  arte:              { label: 'Arte & Cultura',    emoji: '🎨', color: '#534AB7', bg: '#EEEDFE' },
-  naturaleza:        { label: 'Naturaleza',         emoji: '🌿', color: '#639922', bg: '#EAF3DE' },
-  social:            { label: 'Social',             emoji: '🎉', color: '#EF9F27', bg: '#FAEEDA' },
-  food:              { label: 'Food & Coffee',      emoji: '☕', color: '#D85A30', bg: '#FAECE7' },
-  nuevos_comienzos:  { label: 'Nuevos Comienzos',  emoji: '🌱', color: '#378ADD', bg: '#E6F1FB' },
+  tech:             { label: 'Tech & Networking', emoji: '💻', color: '#1D9E75', bg: '#E1F5EE' },
+  arte:             { label: 'Arte & Cultura',    emoji: '🎨', color: '#534AB7', bg: '#EEEDFE' },
+  naturaleza:       { label: 'Naturaleza',        emoji: '🌿', color: '#639922', bg: '#EAF3DE' },
+  social:           { label: 'Social',            emoji: '🎉', color: '#EF9F27', bg: '#FAEEDA' },
+  food:             { label: 'Food & Coffee',     emoji: '☕', color: '#D85A30', bg: '#FAECE7' },
+  nuevos_comienzos: { label: 'Nuevos Comienzos',  emoji: '🌱', color: '#378ADD', bg: '#E6F1FB' },
 }
 
 export const DURATION_OPTIONS: { value: PinDuration; label: string; hours: number }[] = [
-  { value: '1h',    label: '1 hora',           hours: 1 },
-  { value: '3h',    label: '3 horas',          hours: 3 },
-  { value: 'today', label: 'Hasta hoy',        hours: 12 },
+  { value: '1h',    label: '1 hora',    hours: 1  },
+  { value: '3h',    label: '3 horas',   hours: 3  },
+  { value: 'today', label: 'Hasta hoy', hours: 12 },
 ]

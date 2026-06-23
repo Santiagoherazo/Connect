@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -7,8 +8,9 @@ import { PinCategory, CATEGORY_META, DURATION_OPTIONS } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { useCreatePin } from '@/lib/hooks/usePins'
 import { useMapStore } from '@/lib/stores'
+import { MEDELLIN_CENTER } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { X } from 'lucide-react'
+import { X, MapPin } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 const schema = z.object({
@@ -28,9 +30,13 @@ interface NewPinFormProps {
 }
 
 export function NewPinForm({ onClose }: NewPinFormProps) {
-  const { newPinCoords } = useMapStore()
+  const { newPinCoords, userLocation } = useMapStore()
   const createPin = useCreatePin()
   const router = useRouter()
+  const [submitError, setSubmitError] = useState('')
+
+  // ── Bug fix: si no hay coords, usar ubicación del usuario o Medellín center ──
+  const coords = newPinCoords ?? userLocation ?? MEDELLIN_CENTER
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -44,27 +50,33 @@ export function NewPinForm({ onClose }: NewPinFormProps) {
   const selectedCategory = watch('category')
 
   const onSubmit = async (data: FormData) => {
-    if (!newPinCoords) return
-
+    setSubmitError('')
     try {
       const pin = await createPin.mutateAsync({
         ...data,
-        lat: newPinCoords[1],
-        lng: newPinCoords[0],
+        lat: coords[1],
+        lng: coords[0],
       })
       onClose()
       router.push(`/pin/${pin.id}`)
-    } catch (e) {
-      console.error(e)
+    } catch (e: any) {
+      setSubmitError(e?.message ?? 'Error al crear el parche. Intenta de nuevo.')
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="bg-white rounded-3xl w-full max-w-md max-h-[92vh] overflow-y-auto animate-slide-up">
+
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-zinc-100">
-          <h2 className="text-lg font-semibold text-zinc-900">Crear parche</h2>
+        <div className="flex items-center justify-between p-5 border-b border-zinc-100 sticky top-0 bg-white rounded-t-3xl z-10">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-900">Crear parche</h2>
+            <p className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              {newPinCoords ? 'En el punto que seleccionaste' : 'En tu ubicación actual'}
+            </p>
+          </div>
           <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-zinc-100 transition-colors">
             <X className="w-5 h-5 text-zinc-500" />
           </button>
@@ -74,7 +86,9 @@ export function NewPinForm({ onClose }: NewPinFormProps) {
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-2">¿De qué va el parche?</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-2">
+              ¿De qué va el parche?
+            </label>
             <div className="grid grid-cols-3 gap-2">
               {(Object.entries(CATEGORY_META) as [PinCategory, typeof CATEGORY_META[PinCategory]][]).map(([key, meta]) => (
                 <button
@@ -101,43 +115,45 @@ export function NewPinForm({ onClose }: NewPinFormProps) {
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-              Título del parche <span className="text-red-400">*</span>
+              Título <span className="text-red-400">*</span>
             </label>
             <input
               {...register('title')}
               placeholder="ej. Café y charla sobre startups"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
             {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>}
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Descripción (opcional)</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+              Descripción <span className="text-zinc-400 font-normal">(opcional)</span>
+            </label>
             <textarea
               {...register('description')}
               placeholder="¿De qué se va a tratar? ¿Qué esperas del grupo?"
               rows={2}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
             />
           </div>
 
           {/* Venue */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1.5">¿Dónde? (opcional)</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+              Lugar <span className="text-zinc-400 font-normal">(opcional)</span>
+            </label>
             <input
               {...register('venue_name')}
               placeholder="ej. Pergamino Laureles, Parque El Poblado..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
 
           {/* Max members + Duration */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-                Máx. personas
-              </label>
+              <label className="block text-sm font-medium text-zinc-700 mb-1.5">Máx. personas</label>
               <select
                 {...register('max_members', { valueAsNumber: true })}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
@@ -148,9 +164,7 @@ export function NewPinForm({ onClose }: NewPinFormProps) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-                Duración
-              </label>
+              <label className="block text-sm font-medium text-zinc-700 mb-1.5">Duración</label>
               <select
                 {...register('duration')}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
@@ -165,29 +179,24 @@ export function NewPinForm({ onClose }: NewPinFormProps) {
           {/* Meeting point */}
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-              Punto de encuentro (opcional)
+              Punto de encuentro <span className="text-zinc-400 font-normal">(opcional)</span>
             </label>
             <input
               {...register('meeting_point')}
-              placeholder="ej. Entrada principal, mesa del fondo..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              placeholder="ej. Mesa del fondo, entrada principal..."
+              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
 
-          <Button
-            type="submit"
-            size="lg"
-            loading={createPin.isPending}
-            className="w-full"
-          >
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <p className="text-xs text-red-600">{submitError}</p>
+            </div>
+          )}
+
+          <Button type="submit" size="lg" loading={createPin.isPending} className="w-full">
             {createPin.isPending ? 'Creando parche...' : '📍 Publicar parche'}
           </Button>
-
-          {createPin.isError && (
-            <p className="text-xs text-red-500 text-center">
-              Error al crear el parche. Intenta de nuevo.
-            </p>
-          )}
         </form>
       </div>
     </div>
