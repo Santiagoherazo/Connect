@@ -9,6 +9,7 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://connect-alpha-ten.vercel.app',
     cleartext: false,
+    errorPath: '/offline.html',
   },
   plugins: {
     Geolocation: {},

@@ -1,6 +1,6 @@
 'use client'
 
-import { MapView } from '@/components/map/MapView'
+import dynamic from 'next/dynamic'
 import { BottomSheet } from '@/components/map/BottomSheet'
 import { CategoryFilter } from '@/components/ui/CategoryBadge'
 import { NewPinForm } from '@/components/pin/NewPinForm'
@@ -14,9 +14,25 @@ import { Plus, User, RefreshCw, Users } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
+// Import dinámico para evitar SSR de maplibre-gl
+const MapView = dynamic(
+  () => import('@/components/map/MapView').then(m => ({ default: m.MapView })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full bg-zinc-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-2">🗺️</div>
+          <p className="text-sm text-zinc-400">Cargando mapa...</p>
+        </div>
+      </div>
+    ),
+  }
+)
+
 export default function MapPage() {
   useGeolocation()
-  const { userId } = useCurrentUser()   // centralizado — no hace getUser() extra
+  const { userId } = useCurrentUser()
 
   const {
     selectedCategory, setSelectedCategory,
