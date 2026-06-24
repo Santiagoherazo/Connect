@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   // PRODUCTION: App carga desde Vercel (SSR completo, sin static export)
   // Cambiar por tu URL real de Vercel antes de compilar
   server: {
-    url: 'https://connect-tau-puce.vercel.app',
+    url: 'https://connect-alpha-ten.vercel.app',
     cleartext: false,
   },
   plugins: {
