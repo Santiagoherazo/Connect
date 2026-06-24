@@ -30,7 +30,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Node dependencies
-        run: npm ci
+        run: npm install
 
       - name: Create web assets placeholder
         run: |
@@ -85,6 +85,7 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub Release
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
@@ -99,7 +100,7 @@ jobs:
             2. En tu Android: **Ajustes → Aplicaciones → Instalar apps desconocidas**
             3. Abre el APK y pulsa Instalar
 
-            > El APK debug incluye la app conectada a `https://connect-tau-puce.vercel.app`
+            > El APK debug incluye la app conectada a `https://connect-alpha-ten.vercel.app`
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: true
         env:
