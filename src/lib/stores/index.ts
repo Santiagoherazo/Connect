@@ -18,6 +18,8 @@ interface MapState {
   setSelectedCategory: (cat: PinCategory | null) => void
   userLocation: [number, number] | null
   setUserLocation: (loc: [number, number] | null) => void
+  flyToUser: [number, number] | null      // dispara flyTo en el mapa
+  setFlyToUser: (loc: [number, number] | null) => void
   selectedPinId: string | null
   setSelectedPinId: (id: string | null) => void
   showNewPinModal: boolean
@@ -31,6 +33,8 @@ export const useMapStore = create<MapState>((set) => ({
   setSelectedCategory: (cat) => set({ selectedCategory: cat }),
   userLocation: null,
   setUserLocation: (loc) => set({ userLocation: loc }),
+  flyToUser: null,
+  setFlyToUser: (loc) => set({ flyToUser: loc }),
   selectedPinId: null,
   setSelectedPinId: (id) => set({ selectedPinId: id }),
   showNewPinModal: false,

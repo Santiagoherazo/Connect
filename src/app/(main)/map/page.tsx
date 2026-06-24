@@ -6,6 +6,7 @@ import { CategoryFilter } from '@/components/ui/CategoryBadge'
 import { NewPinForm } from '@/components/pin/NewPinForm'
 import { usePins } from '@/lib/hooks/usePins'
 import { useFriendRequests, usePinInvites } from '@/lib/hooks/useFriends'
+import { useFriendLocations } from '@/lib/hooks/useFriendLocations'
 import { useGeolocation } from '@/lib/hooks/useGeolocation'
 import { useCurrentUser } from '@/lib/hooks/useAuth'
 import { useMapStore } from '@/lib/stores'
@@ -14,7 +15,6 @@ import { Plus, User, RefreshCw, Users } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
-// Import dinámico para evitar SSR de maplibre-gl
 const MapView = dynamic(
   () => import('@/components/map/MapView').then(m => ({ default: m.MapView })),
   {
@@ -42,6 +42,7 @@ export default function MapPage() {
   const { data: pins = [], isLoading, refetch, isFetching } = usePins(selectedCategory)
   const { data: friendRequests = [] } = useFriendRequests(userId ?? undefined)
   const { data: pinInvites = [] } = usePinInvites(userId ?? undefined)
+  const { data: friendLocations = [] } = useFriendLocations(userId ?? undefined)
   const notifCount = friendRequests.length + pinInvites.length
 
   return (
@@ -49,6 +50,7 @@ export default function MapPage() {
       <div className="absolute inset-0">
         <MapView
           pins={pins}
+          friends={friendLocations}
           onMapClick={(coords) => { setNewPinCoords(coords); setShowNewPinModal(true) }}
         />
       </div>
@@ -70,6 +72,12 @@ export default function MapPage() {
             <RefreshCw className="w-4 h-4" />
           </button>
           <div className="flex-1" />
+          {friendLocations.length > 0 && (
+            <div className="pointer-events-auto bg-teal-500 text-white rounded-2xl px-2.5 py-2.5 shadow-md flex items-center gap-1.5">
+              <span className="text-xs font-semibold">{friendLocations.length}</span>
+              <span className="text-sm">🟢</span>
+            </div>
+          )}
           <Link href="/friends"
             className="pointer-events-auto relative bg-white rounded-2xl p-2.5 shadow-md text-zinc-500 hover:text-zinc-800">
             <Users className="w-5 h-5" />
