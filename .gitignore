@@ -4,9 +4,8 @@ node_modules/
 # Next.js
 .next/
 out/
-build/
 
-# Env files — NUNCA subir al repo
+# Env — NUNCA subir
 .env
 .env.local
 .env.*.local
@@ -15,9 +14,16 @@ build/
 # Vercel
 .vercel/
 
-# Capacitor (generados al compilar)
+# Android — incluir el proyecto pero excluir builds y keystore
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/release.keystore
+*.keystore
+*.jks
+
+# iOS
 ios/
-android/
 
 # Misc
 .DS_Store

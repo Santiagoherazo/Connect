@@ -4,25 +4,30 @@ const config: CapacitorConfig = {
   appId: 'com.parche.app',
   appName: 'Parche',
   webDir: 'out',
+  // PRODUCTION: App carga desde Vercel (SSR completo, sin static export)
+  // Cambiar por tu URL real de Vercel antes de compilar
   server: {
-    // In development, point to local Next.js server
-    // Comment this out for production builds
-    url: 'http://localhost:3000',
-    cleartext: true,
+    url: 'https://connect-tau-puce.vercel.app',
+    cleartext: false,
   },
   plugins: {
+    Geolocation: {},
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
-    Geolocation: {
-      // iOS permissions
+    SplashScreen: {
+      launchShowDuration: 1500,
+      backgroundColor: '#1D9E75',
+      showSpinner: false,
     },
+  },
+  android: {
+    allowMixedContent: false,
+    backgroundColor: '#FFFFFF',
   },
   ios: {
     contentInset: 'always',
-  },
-  android: {
-    allowMixedContent: true,
+    backgroundColor: '#FFFFFF',
   },
 }
 
