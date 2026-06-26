@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
-import { AppBanner } from '@/components/ui/AppBanner'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -74,7 +73,6 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 to-white flex items-center justify-center p-4">
-      <AppBanner />
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">📍</div>

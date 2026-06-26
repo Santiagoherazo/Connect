@@ -28,11 +28,6 @@ export interface Profile {
   verified: boolean
   pro_until: string | null
   created_at: string
-  // Ubicación en tiempo real
-  lat: number | null
-  lng: number | null
-  last_seen_at: string | null
-  location_sharing: boolean
 }
 
 export interface Pin {
@@ -131,4 +126,3 @@ export const DURATION_OPTIONS: { value: PinDuration; label: string; hours: numbe
   { value: '3h',    label: '3 horas',   hours: 3  },
   { value: 'today', label: 'Hasta hoy', hours: 12 },
 ]
-

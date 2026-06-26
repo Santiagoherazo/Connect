@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { Pin, Profile, CATEGORY_META } from '@/types'
+import { Pin, CATEGORY_META } from '@/types'
 import { useMapStore } from '@/lib/stores'
 import { MEDELLIN_CENTER } from '@/lib/utils'
 
@@ -11,7 +11,7 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
   sources: {
-    'carto-light': {
+    carto: {
       type: 'raster',
       tiles: [
         'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
@@ -19,52 +19,43 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
         'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
       ],
       tileSize: 256,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
-      maxzoom: 20,
+      attribution: '© <a href="https://openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/attributions">CARTO</a>',
     },
   },
-  layers: [
-    {
-      id: 'carto-light-layer',
-      type: 'raster',
-      source: 'carto-light',
-      minzoom: 0,
-      maxzoom: 22,
-    },
-  ],
+  layers: [{ id: 'carto', type: 'raster', source: 'carto' }],
 }
 
 interface MapViewProps {
   pins: Pin[]
-  friends?: Profile[]
   onMapClick?: (coords: [number, number]) => void
 }
 
-export function MapView({ pins, friends = [], onMapClick }: MapViewProps) {
+export function MapView({ pins, onMapClick }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
-  const pinMarkers = useRef<Map<string, maplibregl.Marker>>(new Map())
-  const friendMarkers = useRef<Map<string, maplibregl.Marker>>(new Map())
+  const markers = useRef<Map<string, maplibregl.Marker>>(new Map())
+  const userMarker = useRef<maplibregl.Marker | null>(null)
+  // Solo centramos automáticamente UNA vez — cuando llega la primera ubicación real
+  const centeredOnUser = useRef(false)
 
   const {
     userLocation,
-    flyToUser,
-    setFlyToUser,
     selectedPinId,
     setSelectedPinId,
     setShowNewPinModal,
     setNewPinCoords,
   } = useMapStore()
 
-  // ── Init map ──────────────────────────────────────────────────
+  // ── Init mapa ─────────────────────────────────────────────────
   useEffect(() => {
     if (map.current || !mapContainer.current) return
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_STYLE,
-      center: userLocation ?? MEDELLIN_CENTER,
-      zoom: 14,
+      // Arranca en Medellín — se mueve al usuario en cuanto llega su GPS
+      center: MEDELLIN_CENTER,
+      zoom: 12,
       fadeDuration: 0,
       attributionControl: false,
     })
@@ -73,182 +64,195 @@ export function MapView({ pins, friends = [], onMapClick }: MapViewProps) {
       new maplibregl.AttributionControl({ compact: true }),
       'bottom-left'
     )
-    map.current.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
-      'bottom-right'
-    )
-    map.current.addControl(
-      new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: false,
-        showUserLocation: true,
-      }),
-      'bottom-right'
-    )
 
+    // Click en mapa vacío → crear parche
     map.current.on('click', (e) => {
       const coords: [number, number] = [e.lngLat.lng, e.lngLat.lat]
-      if (onMapClick) onMapClick(coords)
-      else { setNewPinCoords(coords); setShowNewPinModal(true) }
+      setNewPinCoords(coords)
+      setShowNewPinModal(true)
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Autoenfoque cuando llega la ubicación del usuario ─────────
+  // ── Reaccionar a cambios de ubicación del usuario ─────────────
   useEffect(() => {
-    if (!flyToUser || !map.current) return
-    map.current.flyTo({
-      center: flyToUser,
-      zoom: 15,
-      duration: 800,
-    })
-    setFlyToUser(null) // consumir — solo vuela una vez
-  }, [flyToUser, setFlyToUser])
+    if (!map.current || !userLocation) return
+    const [lng, lat] = userLocation
 
-  // ── Marcadores de pines ───────────────────────────────────────
-  const updatePinMarkers = useCallback(() => {
+    // ── Centrado automático: solo la primera vez que llegue GPS real ──
+    if (!centeredOnUser.current) {
+      centeredOnUser.current = true
+      map.current.flyTo({
+        center: [lng, lat],
+        zoom: 15,          // zoom cercano para ver el barrio
+        duration: 1200,
+        essential: true,
+      })
+    }
+
+    // ── Punto azul del usuario (Google Maps style) ────────────────
+    if (!userMarker.current) {
+      const el = document.createElement('div')
+      el.className = 'user-location-marker'
+      el.innerHTML = `
+        <div class="user-dot">
+          <div class="user-dot__halo"></div>
+          <div class="user-dot__ring"></div>
+          <div class="user-dot__core"></div>
+        </div>`
+
+      userMarker.current = new maplibregl.Marker({
+        element: el,
+        anchor: 'center',
+        pitchAlignment: 'map',
+        rotationAlignment: 'map',
+      })
+        .setLngLat([lng, lat])
+        .addTo(map.current!)
+    } else {
+      // Actualizar posición silenciosamente en cada update del GPS
+      userMarker.current.setLngLat([lng, lat])
+    }
+  }, [userLocation])
+
+  // ── Markers de pines ──────────────────────────────────────────
+  const updateMarkers = useCallback(() => {
     if (!map.current) return
+
     const currentIds = new Set(pins.map(p => p.id))
 
-    pinMarkers.current.forEach((marker, id) => {
-      if (!currentIds.has(id)) { marker.remove(); pinMarkers.current.delete(id) }
+    // Remover los que ya expiraron o no existen
+    markers.current.forEach((marker, id) => {
+      if (!currentIds.has(id)) {
+        marker.remove()
+        markers.current.delete(id)
+      }
     })
 
+    // Agregar nuevos (no recrear los existentes)
     pins.forEach((pin) => {
-      if (pinMarkers.current.has(pin.id)) return
+      if (markers.current.has(pin.id)) return
+
       const meta = CATEGORY_META[pin.category]
       const isFull = (pin.member_count ?? 0) >= pin.max_members
 
       const el = document.createElement('div')
       el.innerHTML = `
-        <div class="pmarker ${isFull ? 'pmarker--full' : ''}" style="--mc:${isFull ? '#9ca3af' : meta.color}">
+        <div class="pmarker${isFull ? ' pmarker--full' : ''}"
+             style="--mc:${isFull ? '#9ca3af' : meta.color}">
           <div class="pmarker__pin">
             <span class="pmarker__emoji">${meta.emoji}</span>
           </div>
         </div>`
-      el.addEventListener('click', (e) => { e.stopPropagation(); setSelectedPinId(pin.id) })
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation()
+        setSelectedPinId(pin.id)
+      })
 
       const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([pin.lng, pin.lat])
         .addTo(map.current!)
-      pinMarkers.current.set(pin.id, marker)
+
+      markers.current.set(pin.id, marker)
     })
   }, [pins, setSelectedPinId])
 
   useEffect(() => {
-    if (map.current?.isStyleLoaded()) updatePinMarkers()
-    else map.current?.on('load', updatePinMarkers)
-  }, [updatePinMarkers])
+    if (map.current?.isStyleLoaded()) {
+      updateMarkers()
+    } else {
+      map.current?.on('load', updateMarkers)
+    }
+  }, [updateMarkers])
 
-  // ── Marcadores de amigos ──────────────────────────────────────
-  const updateFriendMarkers = useCallback(() => {
-    if (!map.current) return
-    const currentIds = new Set(friends.map(f => f.id))
-
-    friendMarkers.current.forEach((marker, id) => {
-      if (!currentIds.has(id)) { marker.remove(); friendMarkers.current.delete(id) }
-    })
-
-    friends.forEach((friend) => {
-      if (friend.lat == null || friend.lng == null) return
-
-      const existing = friendMarkers.current.get(friend.id)
-      if (existing) {
-        // Solo actualizar posición si ya existe
-        existing.setLngLat([friend.lng, friend.lat])
-        return
-      }
-
-      const initials = friend.display_name?.slice(0, 2).toUpperCase() ?? '??'
-      const avatar = friend.avatar_url
-
-      const el = document.createElement('div')
-      el.innerHTML = `
-        <div class="fmarker" title="${friend.display_name}">
-          ${avatar
-            ? `<img src="${avatar}" class="fmarker__avatar" alt="${friend.display_name}" />`
-            : `<div class="fmarker__initials">${initials}</div>`
-          }
-          <div class="fmarker__dot"></div>
-        </div>`
-
-      const popup = new maplibregl.Popup({ offset: 40, closeButton: false, className: 'fmarker-popup' })
-        .setHTML(`
-          <div style="display:flex;align-items:center;gap:8px;padding:4px 2px">
-            ${avatar ? `<img src="${avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover" />` : ''}
-            <div>
-              <div style="font-weight:600;font-size:13px;color:#18181b">${friend.display_name}</div>
-              <div style="font-size:11px;color:#71717a">${friend.is_local ? '🏠 Local' : '✈️ Visitante'}</div>
-            </div>
-          </div>`)
-
-      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([friend.lng, friend.lat])
-        .setPopup(popup)
-        .addTo(map.current!)
-
-      el.addEventListener('click', (e) => { e.stopPropagation(); marker.togglePopup() })
-      friendMarkers.current.set(friend.id, marker)
-    })
-  }, [friends])
-
-  useEffect(() => {
-    if (map.current?.isStyleLoaded()) updateFriendMarkers()
-    else map.current?.on('load', updateFriendMarkers)
-  }, [updateFriendMarkers])
-
-  // ── Volar al pin seleccionado ─────────────────────────────────
+  // ── Volar a pin seleccionado ──────────────────────────────────
   useEffect(() => {
     if (!selectedPinId || !map.current) return
     const pin = pins.find(p => p.id === selectedPinId)
-    if (pin) map.current.flyTo({ center: [pin.lng, pin.lat], zoom: 15, duration: 500, offset: [0, -100] })
+    if (pin) {
+      map.current.flyTo({
+        center: [pin.lng, pin.lat],
+        zoom: 15,
+        duration: 500,
+        offset: [0, -120],
+      })
+    }
   }, [selectedPinId, pins])
 
   return (
     <>
       <style>{`
+        /* ── Punto azul del usuario ── */
+        .user-dot {
+          position: relative;
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        /* Halo exterior pulsante */
+        .user-dot__halo {
+          position: absolute;
+          width: 52px;
+          height: 52px;
+          background: rgba(37, 99, 235, 0.12);
+          border-radius: 50%;
+          animation: halo-pulse 2.5s ease-out infinite;
+        }
+        /* Anillo medio */
+        .user-dot__ring {
+          position: absolute;
+          width: 28px;
+          height: 28px;
+          background: rgba(37, 99, 235, 0.25);
+          border-radius: 50%;
+          animation: halo-pulse 2.5s ease-out infinite 0.4s;
+        }
+        /* Punto central */
+        .user-dot__core {
+          width: 16px;
+          height: 16px;
+          background: #2563EB;
+          border: 2.5px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.55);
+          position: relative;
+          z-index: 2;
+        }
+        @keyframes halo-pulse {
+          0%   { transform: scale(0.5); opacity: 1; }
+          100% { transform: scale(1.4); opacity: 0; }
+        }
+
+        /* ── Markers de pines ── */
         .pmarker { cursor: pointer; }
         .pmarker__pin {
-          width: 44px; height: 44px;
+          width: 44px;
+          height: 44px;
           border-radius: 50% 50% 50% 0;
           transform: rotate(-45deg);
           background: var(--mc);
           border: 3px solid white;
-          box-shadow: 0 3px 12px rgba(0,0,0,0.25);
-          display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 3px 12px rgba(0,0,0,0.22);
+          display: flex;
+          align-items: center;
+          justify-content: center;
           transition: transform .15s, box-shadow .15s;
+          will-change: transform;
         }
-        .pmarker:hover .pmarker__pin {
-          transform: rotate(-45deg) scale(1.18);
-          box-shadow: 0 5px 18px rgba(0,0,0,0.3);
+        .pmarker:hover .pmarker__pin,
+        .pmarker--selected .pmarker__pin {
+          transform: rotate(-45deg) scale(1.2);
+          box-shadow: 0 5px 18px rgba(0,0,0,0.32);
         }
-        .pmarker--full .pmarker__pin { opacity: 0.6; }
-        .pmarker__emoji { transform: rotate(45deg); font-size: 18px; line-height: 1; display: block; }
-
-        .fmarker { cursor: pointer; position: relative; }
-        .fmarker__avatar {
-          width: 38px; height: 38px; border-radius: 50%;
-          border: 3px solid #14b8a6;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-          object-fit: cover;
+        .pmarker--full .pmarker__pin { opacity: 0.55; }
+        .pmarker__emoji {
+          transform: rotate(45deg);
+          font-size: 18px;
+          line-height: 1;
           display: block;
         }
-        .fmarker__initials {
-          width: 38px; height: 38px; border-radius: 50%;
-          background: #14b8a6; border: 3px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 700; color: white;
-        }
-        .fmarker__dot {
-          position: absolute; bottom: 0; right: 0;
-          width: 10px; height: 10px; border-radius: 50%;
-          background: #22c55e; border: 2px solid white;
-        }
-        .fmarker-popup .maplibregl-popup-content {
-          border-radius: 12px; padding: 8px 12px;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-        }
-        .maplibregl-ctrl-bottom-right { bottom: 180px !important; }
         .maplibregl-ctrl-attrib { font-size: 10px !important; }
       `}</style>
       <div ref={mapContainer} className="w-full h-full" />
